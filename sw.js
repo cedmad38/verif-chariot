@@ -1,5 +1,5 @@
 // Cache hors-ligne de la version chiffrée : réseau d'abord, cache en secours.
-const V = 'vc-mupx0b9j';
+const V = 'vc-mupx42y9';
 const FILES = ['./', 'index.html', 'app.enc', 'manifest.webmanifest', 'img/icon-192.png', 'img/apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
