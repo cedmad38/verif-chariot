@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b4f8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vérif Chariot">
+<title>Vérif Chariot</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="icon" href="img/icon-192.png">
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1f5;color:#14213d;font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  #gate{width:min(92vw,380px);background:#fff;border-radius:22px;padding:28px 22px;box-shadow:0 6px 24px rgba(20,33,61,.12);text-align:center}
+  #gate h1{font-size:22px;margin:0 0 6px}
+  #gate p{color:#5b6678;margin:0 0 18px;font-size:15px}
+  #pin{width:100%;box-sizing:border-box;height:72px;border-radius:16px;border:2px solid #d8dee8;text-align:center;font-size:34px;letter-spacing:.5em;padding-left:.5em;font-weight:700;outline:none}
+  #pin:focus{border-color:#0b4f8a;box-shadow:0 0 0 4px #e3eefa}
+  #err{color:#d62828;font-weight:650;min-height:24px;margin-top:12px;font-size:15px}
+  @media(prefers-color-scheme:dark){body{background:#0e1522;color:#eaf0fa}#gate{background:#172236}#pin{background:#172236;color:#eaf0fa;border-color:#2a3850}}
+</style>
+</head>
+<body>
+<div id="gate"><h1>Vérif Chariot</h1><p id="msg">Chargement…</p><div id="form" hidden><input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••"><div id="err"></div></div></div>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  // le secret arrive par le lien du QR code (#k=…) ; on le garde sur ce téléphone et on nettoie l'adresse
+  var parts = location.hash.slice(1).split('&').filter(Boolean);
+  var kp = parts.filter(function (p) { return p.indexOf('k=') === 0; })[0];
+  if (kp) {
+    set('vc.k', kp.slice(2)); del('vc.pin');
+    var rest = parts.filter(function (p) { return p.indexOf('k=') !== 0; }).join('&');
+    history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+  }
+
+  async function decrypt(secret, pin) {
+    var res = await fetch('app.enc', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('fichier');
+    var buf = new Uint8Array(await res.arrayBuffer());
+    var iter = new DataView(buf.buffer).getUint32(3);
+    var salt = buf.slice(7, 23), iv = buf.slice(23, 35), data = buf.slice(35);
+    var km = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret + ':' + pin), 'PBKDF2', false, ['deriveKey']);
+    var key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);   // lève une erreur si le code est faux
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+
+  function start(p) {
+    var st = document.createElement('style'); st.textContent = p.css; document.head.appendChild(st);
+    document.body.removeAttribute('style'); document.body.innerHTML = p.html;
+    p.scripts.forEach(function (code) { var s = document.createElement('script'); s.text = code; document.head.appendChild(s); });
+  }
+
+  async function tryOpen(pin) {
+    var secret = get('vc.k');
+    try { var p = await decrypt(secret, pin); set('vc.pin', pin); start(p); return true; }
+    catch (e) { return e && e.message === 'fichier' ? 'offline' : false; }
+  }
+
+  async function boot() {
+    if (!window.crypto || !crypto.subtle) { $('#msg').textContent = 'Ouvrez cette page en https.'; return; }
+    if (!get('vc.k')) { $('#msg').textContent = 'Scannez le QR code affiché sur le site pour ouvrir l’application.'; return; }
+    var pin = get('vc.pin');
+    if (pin) { var r = await tryOpen(pin); if (r === true) return; if (r === 'offline') { $('#msg').textContent = 'Connexion nécessaire pour la première ouverture.'; return; } del('vc.pin'); }
+    $('#msg').textContent = 'Entrez votre code à 4 chiffres'; $('#form').hidden = false;
+    var inp = $('#pin'); inp.focus();
+    inp.addEventListener('input', async function () {
+      inp.value = inp.value.replace(/\D/g, '');
+      if (inp.value.length < 4) { $('#err').textContent = ''; return; }
+      inp.disabled = true; $('#err').textContent = 'Vérification…';
+      var r = await tryOpen(inp.value);
+      if (r === true) return;
+      inp.disabled = false; inp.value = ''; inp.focus();
+      $('#err').textContent = r === 'offline' ? 'Connexion nécessaire.' : 'Code incorrect';
+    });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
