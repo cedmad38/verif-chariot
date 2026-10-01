@@ -1,6 +1,6 @@
 {
-  "name": "Vérif Chariot",
-  "short_name": "Vérif Chariot",
+  "name": "Chariots Prysmian",
+  "short_name": "Chariots Prysmian",
   "description": "Vérification quotidienne du chariot élévateur",
   "start_url": "./index.html",
   "display": "standalone",
