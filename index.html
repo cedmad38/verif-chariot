@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b4f8a">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Chariots Prysmian">
@@ -12,19 +12,23 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="icon" href="img/icon-192.png">
 <style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1f5;color:#14213d;font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  #gate{width:min(92vw,380px);background:#fff;border-radius:22px;padding:28px 22px;box-shadow:0 6px 24px rgba(20,33,61,.12);text-align:center}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1220;color:#eaf0fa;font:17px/1.4 ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;touch-action:manipulation}
+  #gate{width:min(92vw,380px);background:#151f38;border-radius:22px;padding:28px 22px;box-shadow:0 8px 28px rgba(0,0,0,.45);text-align:center;border-top:4px solid #00b4b8}
   #gate h1{font-size:22px;margin:0 0 6px}
-  #gate p{color:#5b6678;margin:0 0 18px;font-size:15px}
-  #pin{width:100%;box-sizing:border-box;height:72px;border-radius:16px;border:2px solid #d8dee8;text-align:center;font-size:34px;letter-spacing:.5em;padding-left:.5em;font-weight:700;outline:none}
-  #pin:focus{border-color:#0b4f8a;box-shadow:0 0 0 4px #e3eefa}
-  #err{color:#d62828;font-weight:650;min-height:24px;margin-top:12px;font-size:15px}
-  @media(prefers-color-scheme:dark){body{background:#0e1522;color:#eaf0fa}#gate{background:#172236}#pin{background:#172236;color:#eaf0fa;border-color:#2a3850}}
+  #gate p{color:#9aa7c0;margin:0 0 18px;font-size:15px}
+  #pin{width:100%;box-sizing:border-box;height:72px;border-radius:16px;border:2px solid #27345a;background:#0b1220;color:#eaf0fa;text-align:center;font-size:34px;letter-spacing:.5em;padding-left:.5em;font-weight:700;outline:none}
+  #pin:focus{border-color:#00b4b8;box-shadow:0 0 0 4px #00b4b833}
+  #err{color:#ff6b6b;font-weight:650;min-height:24px;margin-top:12px;font-size:15px}
+  html[data-theme=light] body{background:#f3f6f9;color:#283048}
+  html[data-theme=light] #gate{background:#fff;box-shadow:0 6px 24px rgba(40,48,72,.12)}
+  html[data-theme=light] #gate p{color:#5d6679}
+  html[data-theme=light] #pin{background:#fff;color:#283048;border-color:#dbe1ea}
 </style>
 </head>
 <body>
 <div id="gate"><h1>Chariots Prysmian</h1><p id="msg">Chargement…</p><div id="form" hidden><input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••"><div id="err"></div></div></div>
 <script>
+try { if (localStorage.getItem('cc.theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
