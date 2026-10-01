@@ -31,14 +31,15 @@
   function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function del(k) { try { localStorage.removeItem(k); } catch (e) {} }
 
-  // le secret arrive par le lien du QR code (#k=…) ; on le garde sur ce téléphone et on nettoie l'adresse
+  // le secret arrive par le lien du QR code (#k=…). On le garde sur ce téléphone ET dans l'adresse :
+  // « Ajouter à l'écran d'accueil » mémorise l'adresse complète, donc le raccourci contient le secret
+  // (sur iPhone, un raccourci a son propre stockage, séparé de Safari).
   var parts = location.hash.slice(1).split('&').filter(Boolean);
   var kp = parts.filter(function (p) { return p.indexOf('k=') === 0; })[0];
   if (kp) {
-    set('vc.k', kp.slice(2)); del('vc.pin');
-    var rest = parts.filter(function (p) { return p.indexOf('k=') !== 0; }).join('&');
-    history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : ''));
+    if (get('vc.k') !== kp.slice(2)) { set('vc.k', kp.slice(2)); del('vc.pin'); }   // nouveau secret : on redemande le code
   }
+  var standalone = (window.navigator && window.navigator.standalone) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 
   async function decrypt(secret, pin) {
     var res = await fetch('app.enc', { cache: 'no-cache' });
@@ -66,7 +67,7 @@
 
   async function boot() {
     if (!window.crypto || !crypto.subtle) { $('#msg').textContent = 'Ouvrez cette page en https.'; return; }
-    if (!get('vc.k')) { $('#msg').textContent = 'Scannez le QR code affiché sur le site pour ouvrir l’application.'; return; }
+    if (!get('vc.k')) { $('#msg').textContent = standalone ? 'Ce raccourci n’a pas le lien d’accès. Supprimez-le, rouvrez le QR code dans Safari, puis « Sur l’écran d’accueil » de nouveau.' : 'Scannez le QR code affiché sur le site pour ouvrir l’application.'; return; }
     var pin = get('vc.pin');
     if (pin) { var r = await tryOpen(pin); if (r === true) return; if (r === 'offline') { $('#msg').textContent = 'Connexion nécessaire pour la première ouverture.'; return; } del('vc.pin'); }
     $('#msg').textContent = 'Entrez votre code à 4 chiffres'; $('#form').hidden = false;
