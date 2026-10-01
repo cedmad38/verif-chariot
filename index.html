@@ -41,19 +41,33 @@
   }
   var standalone = (window.navigator && window.navigator.standalone) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 
+  var STORE = 'https://kqplliavpijhqudkahix.supabase.co/storage/v1/object/public/app/app.enc';   // version remise à jour par l'admin (changement de code)
+
+  function parse(buf) {                       // VC1 : 35 octets d'en-tête ; VC2 : 43 octets + horodatage
+    var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    if (buf[0] !== 0x56 || buf[1] !== 0x43) return null;
+    if (buf[2] === 0x32) return { ts: dv.getFloat64(7), iter: dv.getUint32(3), salt: buf.slice(15, 31), iv: buf.slice(31, 43), data: buf.slice(43) };
+    return { ts: 0, iter: dv.getUint32(3), salt: buf.slice(7, 23), iv: buf.slice(23, 35), data: buf.slice(35) };
+  }
+  async function grab(url, opts) {
+    try { var r = await fetch(url, opts); if (!r.ok) return null; return parse(new Uint8Array(await r.arrayBuffer())); } catch (e) { return null; }
+  }
+  async function newest() {                   // la plus récente des deux sources
+    var got = await Promise.all([grab('app.enc', { cache: 'no-cache' }), grab(STORE + '?t=' + Date.now(), { cache: 'no-store' })]);
+    var best = null; got.forEach(function (g) { if (g && (!best || g.ts > best.ts)) best = g; });
+    if (!best) throw new Error('fichier');
+    return best;
+  }
   async function decrypt(secret, pin) {
-    var res = await fetch('app.enc', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('fichier');
-    var buf = new Uint8Array(await res.arrayBuffer());
-    var iter = new DataView(buf.buffer).getUint32(3);
-    var salt = buf.slice(7, 23), iv = buf.slice(23, 35), data = buf.slice(35);
+    var f = await newest();
     var km = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret + ':' + pin), 'PBKDF2', false, ['deriveKey']);
-    var key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);   // lève une erreur si le code est faux
+    var key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: f.salt, iterations: f.iter, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: f.iv }, key, f.data);   // lève une erreur si le code est faux
     return JSON.parse(new TextDecoder().decode(plain));
   }
 
   function start(p) {
+    window.__CC_PAYLOAD = p;                  // gardée en mémoire seulement : l'admin s'en sert pour changer le code
     var st = document.createElement('style'); st.textContent = p.css; document.head.appendChild(st);
     document.body.removeAttribute('style'); document.body.innerHTML = p.html;
     p.scripts.forEach(function (code) { var s = document.createElement('script'); s.text = code; document.head.appendChild(s); });
@@ -79,7 +93,7 @@
       var r = await tryOpen(inp.value);
       if (r === true) return;
       inp.disabled = false; inp.value = ''; inp.focus();
-      $('#err').textContent = r === 'offline' ? 'Connexion nécessaire.' : 'Code incorrect';
+      $('#err').textContent = r === 'offline' ? 'Connexion nécessaire.' : 'Code incorrect. Si le code a changé, rouvrez le nouveau QR code.';
     });
   }
   boot();
